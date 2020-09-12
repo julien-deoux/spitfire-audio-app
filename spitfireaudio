@@ -1,0 +1,145 @@
+#!/bin/sh
+
+# Logging
+VERBOSE=false
+ERROR() { echo "[ERROR]   $1"; }
+INFO() { [ $VERBOSE = 'true' ] && echo "[INFO]    $1"; }
+
+# Default variables
+CLEAR_CACHE=false
+INSTALLER_URL='https://www.spitfireaudio.com/library-manager/download/win'
+CACHE_DIR="$HOME/.cache/spitfireaudio"
+INSTALLER_EXE='SpitfireAudio.exe'
+INSTALLER_PATH="$CACHE_DIR/$INSTALLER_EXE"
+BASE_DIR="$HOME/.local/share/spitfireaudio"
+WINEPREFIX="$BASE_DIR/wineprefix"
+APP_PATH="$WINEPREFIX/drive_c/Program Files (x86)/Spitfire Audio/Spitfire Audio.exe"
+
+####################
+# Helper functions #
+####################
+
+usage() {
+  echo "Usage: $0 <command> [options]"
+  echo ""
+  echo "Available commands:"
+  echo "  install    - Installs the Spitfire Audio App"
+  echo "  uninstall  - Removes the Spitfire Audio App and its WINEPREFIX"
+  echo "  help       - Displays this help"
+  echo ""
+  echo "General options:"
+  echo "  -v, --verbose      - Enable verbose mode (displays additional information)"
+  echo ""
+  echo "Installation options:"
+  echo "  -c, --clear-cache  - Clears the cache and downloads a fresh installer"
+}
+
+clear_cache() {
+  INFO "Removing cache $CACHE_DIR"
+  rm -r $CACHE_DIR
+}
+
+cache() {
+  [ ! -d $CACHE_DIR ] && mkdir -p $CACHE_DIR
+  INFO "Using cache directory $CACHE_DIR"
+}
+
+base() {
+  [ ! -d $BASE_DIR ] && mkdir -p $BASE_DIR
+  INFO "Using base directory $BASE_DIR"
+}
+
+download() {
+  [ $CLEAR_CACHE = 'true' ] && clear_cache
+  if [ -f $INSTALLER_PATH ]; then
+    INFO "Installer found: $INSTALLER_PATH"
+  else
+    cache
+    INFO "Downloading $INSTALLER_URL"
+    curl -L $INSTALLER_URL > $INSTALLER_PATH
+  fi
+}
+
+###########
+# Options #
+###########
+
+COMMAND='_EMPTY'
+
+for param in $@; do
+  o='_EMPTY'
+
+  if [ ${param::2} = '--' ]; then
+    o=${param:2}
+  else
+    if [ ${param::1} = '-' ]; then
+      o=${param:1:1}
+    else
+      if [ $COMMAND = '_EMPTY' ]; then
+        COMMAND=$param
+      fi
+    fi
+  fi
+  
+  case $o in
+    _EMPTY) ;;
+    c|clear-cache) CLEAR_CACHE=true;;
+    v|verbose) VERBOSE=true;;
+    *) echo "Illegal option '$param'"; usage; exit 1;;
+  esac
+
+done
+
+[ $COMMAND = '_EMPTY' ] && usage && exit 0
+
+########
+# Main #
+########
+
+case $COMMAND in
+  install)
+    [ -f "${APP_PATH}" ] && ERROR "The Spitfire Audio App is already installed." && exit 1
+    download
+    base
+    INFO "Launching installer"
+    if [ $VERBOSE = 'true' ]; then
+      WINEPREFIX=$WINEPREFIX wine $INSTALLER_PATH '/SILENT'
+    else
+      WINEPREFIX=$WINEPREFIX wine $INSTALLER_PATH '/SILENT' &>/dev/null
+    fi
+    echo "Successfully installed!"
+    ;;
+  
+  uninstall)
+    if [ -d $BASE_DIR ]; then
+      INFO "Removing base directory $BASE_DIR"
+      rm -r $BASE_DIR
+      echo "Successfully uninstalled!"
+    else
+      ERROR "The Spitfire Audio base directory cannot be found."
+    fi
+    ;;
+
+  launch)
+    INFO "Launching Spitfire Audio App"
+    if [ $VERBOSE = 'true' ]; then
+      WINEPREFIX=$WINEPREFIX wine "${APP_PATH}"
+    else
+      WINEPREFIX=$WINEPREFIX wine "${APP_PATH}" &>/dev/null
+    fi
+    ;;
+  
+  winecfg)
+    base
+    INFO "Launching winecfg"
+    if [ $VERBOSE = 'true' ]; then
+      WINEPREFIX=$WINEPREFIX winecfg
+    else
+      WINEPREFIX=$WINEPREFIX winecfg &>/dev/null
+    fi
+    ;;
+  
+  help) usage;;
+
+  *) ERROR "Unkown command $1"; usage;;
+esac
