@@ -1,9 +1,15 @@
 # spitfire-audio-app
 Helper script to install and launch the Spitfire Audio App on GNU+Linux
 
+## Dependencies
+
+* curl
+* wine
+* lib32-gnutls
+
 ## TODO
 
-* List dependencies in README
 * Write Github documentation
-* Create Desktop entry
+* Suppress default uninstall desktop entry
+* Create accurate uninstall desktop entry
 * Handle missing dependencies in script
